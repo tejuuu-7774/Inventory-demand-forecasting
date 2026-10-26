@@ -1,0 +1,71 @@
+# ==============================================================================
+# Byte-compiled / optimized / C-extensions
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ==============================================================================
+# Virtual Environments
+# ==============================================================================
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# ==============================================================================
+# Jupyter Notebook Checkpoints & Cache
+# ==============================================================================
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+.pytest_cache/
+
+# ==============================================================================
+# Operating System Files
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==============================================================================
+# IDEs and Text Editors
+# ==============================================================================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.swo
+*~
+
+# ==============================================================================
+# Large Datasets & Intermediate Data
+# ==============================================================================
+# Keep directory structures intact via .gitkeep
+!Datasets/raw/.gitkeep
+!Datasets/processed/.gitkeep
+
+# Ignore large raw dataset files downloaded from Kaggle M5
+Datasets/raw/*.csv
+Datasets/raw/*.csv.zip
+Datasets/raw/*.zip
+Datasets/raw/*.gz
+
+# Ignore large processed pickles and intermediate outputs
+Datasets/processed/*.pkl
+Datasets/processed/*.parquet
+
+# ==============================================================================
+# Temporary / Scratch Files
+# ==============================================================================
+scratch/
+tmp/
+*.tmp
+*.log
