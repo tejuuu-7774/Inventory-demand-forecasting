@@ -1,0 +1,33 @@
+{
+  "recorded_at": "2026-11-09T00:00:00+05:30",
+  "git_branch": "main",
+  "git_commit": "8468a7e295927fa6abea2f4e4473f579f5e42d88",
+  "sha256": {
+    "Notebooks/01_data_exploration.ipynb": "ab1253328f3f0ec09ae9ab9f58e0d673e769bd1f4375d84f1b52e5dafa13f69d",
+    "Notebooks/02_feature_engineering.ipynb": "b67ce2a2049b99df16ee748be32d53346f35af062b778f36bf703480cd33584f",
+    "Notebooks/03_model_development.ipynb": "e4e012bd099032aa24d281486cae3dc36238659f9579937c748f481a07a96ced",
+    "results/phase1_model_comparison.csv": "2d8eae9fec6e7783b8a25631a447d134f32804eb54ad83d59a4e701582e3df59",
+    "results/phase1_predictions.csv.gz": "ff409626b0f9615c849f1fc9fdb205df589d73ace21f831a26d178bf6d6037ee",
+    "results/phase1_window_results.csv": "7e2831d0503f55fc146a46e95c7d59f22535f1becbcdea4357d188267b206187",
+    "requirements.txt": "9753e7aa1670085bfe7dac9d8f2d2e6a31568f57a82d044a2c085d93c103e576",
+    "report/Inventory_Demand_Forecasting_Team_Report.pdf": "6b83f25a6583794f8d0c3ed169d69259c093d8383fca8934a260351952dac0cf",
+    "Presentations/Inventory_Demand_Forecast_AML_Team_Project_Phase_1.pdf": "1fb7192a9dd7f1ca753b5b5b2e350b0d05a69d0ae16ab3b1cb57cc2f4d0cb108"
+  },
+  "audited_metrics": {
+    "Gradient Boosting": {
+      "MAE": 1.022386,
+      "RMSE": 2.039656,
+      "WAPE_percent": 67.026
+    },
+    "Kalman Filter": {
+      "MAE": 1.059506,
+      "RMSE": 2.175192,
+      "WAPE_percent": 69.4596
+    },
+    "Seasonal Naive": {
+      "MAE": 1.209643,
+      "RMSE": 2.708387,
+      "WAPE_percent": 79.3023
+    }
+  }
+}
