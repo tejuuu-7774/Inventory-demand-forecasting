@@ -1,300 +1,584 @@
 # Inventory Demand Forecasting — Walmart M5 Retail Analysis
 
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Framework](https://img.shields.io/badge/framework-scikit--learn-orange.svg)](https://scikit-learn.org/)
-[![Notebooks](https://img.shields.io/badge/environment-Jupyter%20Notebook-informational.svg)](https://jupyter.org/)
-[![Project Status](https://img.shields.io/badge/project%20phase-Phase%201%20Complete-brightgreen.svg)]()
+[![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![Framework](https://img.shields.io/badge/framework-scikit--learn%20%7C%20PyTorch-orange.svg)](https://scikit-learn.org/)
+[![Environment](https://img.shields.io/badge/environment-Jupyter%20Notebook-informational.svg)](https://jupyter.org/)
+[![Project Status](https://img.shields.io/badge/project%20phase-Phase%202%20Complete-brightgreen.svg)]()
 
-> **Applied Machine Learning (AML) Team Project — Phase 1**  
-> Empirical comparison of heuristic, state-space, and gradient-boosted machine learning models for intermittent retail demand forecasting on the Walmart M5 dataset.
+> **Applied Machine Learning (AML) Team Project — Phase 1 & Phase 2**  
+> An empirical study of intermittent retail demand forecasting using statistical state-space models, global machine learning, probabilistic deep learning, and causal hybrid forecasting on the Walmart M5 dataset.
 
 ---
 
 ## Table of Contents
+
 - [Project Overview](#project-overview)
+- [Research Objectives](#research-objectives)
 - [Repository Architecture](#repository-architecture)
-- [Dataset & Preparation](#dataset--preparation)
+- [Dataset & Experimental Design](#dataset--experimental-design)
 - [Forecasting Methodology & Pipeline](#forecasting-methodology--pipeline)
 - [Models Evaluated](#models-evaluated)
 - [Experimental Results](#experimental-results)
   - [Overall Model Comparison](#overall-model-comparison)
-  - [Window-by-Window Performance](#window-by-window-performance)
-  - [Key Findings & Trade-offs](#key-findings--trade-offs)
+  - [Cold-Start Evaluation](#cold-start-evaluation)
+  - [Ablation Study](#ablation-study)
+  - [Probabilistic Calibration](#probabilistic-calibration)
+  - [Inventory Simulation](#inventory-simulation)
 - [Visualizations](#visualizations)
 - [Setup & Installation](#setup--installation)
 - [How to Run](#how-to-run)
 - [Deliverables & Reports](#deliverables--reports)
-- [Future Work & Phase 2 Roadmap](#future-work--phase-2-roadmap)
+- [Limitations & Future Work](#limitations--future-work)
+- [References](#references)
+- [License & Citation](#license--citation)
 
 ---
 
 ## Project Overview
 
-In retail supply chains, stockouts lead to lost revenue while overstocking incurs heavy holding costs and spoilage. Accurate unit-level demand forecasting is notoriously difficult because store-item (SKU) level sales are frequently **intermittent, zero-inflated, and subject to weekly seasonality, promotional spikes, and policy events (e.g., SNAP distribution days)**.
+In retail supply chains, inaccurate demand forecasts create two major operational problems: stockouts lead to lost sales, while excess inventory increases holding costs and potential spoilage.
 
-This project implements an end-to-end forecasting pipeline using the **Walmart M5 Forecasting dataset**:
-1. **Explores intermittent demand patterns** across stores, dates, and event schedules.
-2. **Builds a leak-free feature engineering pipeline** with lag, rolling-window statistics, calendar attributes, and SNAP indicators.
-3. **Conducts a rigorous benchmark across 4 rolling 7-day forecast windows** (28 days total holdout) comparing:
-   - **Seasonal Naive Baseline** (7-day periodic persistence)
-   - **Local-Level Kalman Filter** (Univariate state-space model with 80% Gaussian uncertainty intervals)
-   - **Global Gradient Boosting Regressor** (`HistGradientBoostingRegressor` with recursive multi-step autoregression)
+Forecasting demand at the individual product-store level is particularly challenging because retail sales are frequently **intermittent, zero-inflated, seasonal, and influenced by changing prices, promotions, and calendar events**.
+
+This project develops and evaluates an end-to-end forecasting framework using the **Walmart M5 Forecasting — Accuracy dataset**.
+
+The work is organised into two phases:
+
+**Phase 1 — Statistical and Machine Learning Baselines**
+
+1. Explores intermittent demand patterns across products, stores, dates, and event schedules.
+2. Develops a leak-free feature engineering pipeline using autoregressive lags, rolling statistics, calendar attributes, and SNAP indicators.
+3. Establishes three forecasting benchmarks:
+   - Seasonal Naive baseline.
+   - Local-Level Kalman Filter.
+   - Global Histogram-Based Gradient Boosting.
+
+**Phase 2 — Probabilistic Deep Learning and Decision Support**
+
+1. Implements a global DeepAR-style recurrent neural forecasting model with a Negative Binomial output distribution.
+2. Develops a causal Kalman–DeepAR hybrid using dynamically estimated Kalman state features.
+3. Evaluates limited-history transfer, zero-shot forecasting, and unseen store-item combinations.
+4. Conducts controlled feature ablation experiments.
+5. Evaluates probabilistic forecast calibration and uncertainty intervals.
+6. Translates predictive distributions into an educational inventory replenishment policy comparison.
+
+---
+
+## Research Objectives
+
+The primary objectives of this research are:
+
+- Compare local statistical models, global machine learning, and probabilistic deep learning for intermittent retail demand.
+- Evaluate forecasting methods using identical rolling-origin test windows.
+- Prevent temporal leakage through past-only feature construction and causal state estimation.
+- Model predictive uncertainty using q10, q50, and q90 quantile forecasts.
+- Investigate generalisation to products with limited or unavailable historical observations.
+- Measure the contribution of calendar, static, pricing, availability, and Kalman-derived features.
+- Explore how probabilistic forecasts can support inventory replenishment decisions.
+- Establish reproducible experiments through deterministic configurations, artifact manifests, and automated tests.
 
 ---
 
 ## Repository Architecture
 
-```plaintext
+```text
 Inventory-demand-forecasting/
-├── .gitignore                                      # Ignored build, OS, venv, and large data files
-├── requirements.txt                                # Project dependencies
-├── README.md                                       # Comprehensive project documentation
+│
 ├── Datasets/
-│   ├── raw/                                        # Raw M5 dataset files (.gitkeep tracked)
-│   │   ├── calendar.csv                            # Dates, event markers, and SNAP indicators
-│   │   ├── sales_train_validation.csv              # Daily unit sales per store-item series
-│   │   └── sell_prices.csv                         # Weekly selling prices per store-item
-│   └── processed/                                  # Prepared model data and configs (.gitkeep tracked)
-│       ├── phase1_config.json                      # Serialization of experiment settings
-│       ├── phase1_forecast_windows.csv             # 4 rolling 7-day evaluation windows
-│       ├── phase1_prepared.pkl                     # Reshaped feature table (wide-to-long)
-│       └── phase1_selected_series.csv              # 100 sampled series identifiers
+│   ├── raw/                         # Raw M5 CSV files (download separately)
+│   └── processed/                    # Processed Phase 1 experiment data
+│
 ├── Notebooks/
-│   ├── 01_data_exploration.ipynb                   # Exploratory data analysis & seasonality
-│   ├── 02_feature_engineering.ipynb                # Feature extraction & rolling window setup
-│   └── 03_model_development.ipynb                  # Model training, evaluation & diagnostics
-├── Presentation/
-│   └── Inventory_Demand_Forecast_AML_Team_Project_Phase_1 (1).pdf # Team presentation slide deck
+│   ├── 01_data_exploration.ipynb     # Exploratory data analysis
+│   ├── 02_feature_engineering.ipynb  # Feature engineering and data preparation
+│   ├── 03_model_development.ipynb    # Phase 1 forecasting benchmarks
+│   ├── 04_deep_learning_forecasting.ipynb
+│   ├── 05_kalman_deepar_hybrid.ipynb
+│   ├── 06_cold_start_evaluation.ipynb
+│   ├── 07_ablation_study.ipynb
+│   └── 08_inventory_simulation.ipynb
+│
+├── configs/                          # Experiment configuration
+│
+├── models/
+│   └── phase2/                       # Model manifests and metadata
+│
+├── src/
+│   └── phase2/                       # Tested Phase 2 implementation
+│
+├── tests/
+│   └── phase2/                       # Automated model and experiment tests
+│
+├── results/
+│   ├── phase1_model_comparison.csv
+│   ├── phase1_predictions.csv.gz
+│   ├── phase1_window_results.csv
+│   └── phase2/                       # Corrected Phase 2 experiment outputs
+│
 ├── report/
-│   ├── Inventory_Demand_Forecasting_Team_Report.pdf # Full written team technical report
-│   └── figures/                                    # Generated publication-quality plots
-│       ├── aggregate_time_patterns.png             # Daily, weekly, and monthly aggregate demand
-│       ├── demand_distribution.png                 # Histogram of SKU-level demand (intermittency)
-│       ├── mae_by_window.png                       # MAE trajectory across 4 test windows
-│       └── weekday_average_sales.png               # Day-of-week sales variations
-└── results/
-    ├── phase1_model_comparison.csv                 # Aggregate MAE, RMSE, WAPE & coverage metrics
-    ├── phase1_predictions.csv.gz                   # Out-of-sample predictions across all series
-    └── phase1_window_results.csv                   # Per-window breakdown of performance
+│   ├── PHASE2_FINAL_RESEARCH_REPORT.pdf
+│   └── figures/
+│       └── phase2/                   # Phase 2 research visualizations
+│
+├── presentation/                     # Team presentation and assets
+│
+├── scripts/                          # Experiment and artifact generation utilities
+│
+├── .gitignore
+├── CITATION.cff
+├── LICENSE
+├── README.md
+└── requirements.txt
 ```
 
 ---
 
-## Dataset & Preparation
+## Dataset & Experimental Design
 
-The raw data is derived from the **Kaggle M5 Forecasting — Accuracy Competition**:
-- **Daily Unit Sales (`sales_train_validation.csv`)**: Unit sales for 30,490 product-store series across 10 stores located in 3 US states (California, Texas, Wisconsin) over 1,913 days (`d_1` to `d_1913`).
-- **Calendar Data (`calendar.csv`)**: Dates, weekdays, months, cultural/sporting event names, and state-specific SNAP distribution days (`snap_CA`, `snap_TX`, `snap_WI`).
-- **Pricing Data (`sell_prices.csv`)**: Historical weekly selling prices per store-item.
+The project uses the [Kaggle M5 Forecasting — Accuracy Competition](https://www.kaggle.com/c/m5-forecasting-accuracy/data) dataset.
 
-### Experimental Design (Phase 1 Sample)
-To ensure reproducible, rapid, and fair model iterations:
-- **Sample Size**: 100 representative product-store series (stratified: exactly 10 series randomly sampled with `random_state=42` from each of the 10 Walmart stores).
-- **Forecast Horizon**: 7 days per window ($H = 7$).
-- **Evaluation Windows**: 4 consecutive rolling test windows spanning the final 28 days of history:
-  - **Window 1**: Days 1886–1892 (Origin: `d_1885` / 2016-04-24)
-  - **Window 2**: Days 1893–1899 (Origin: `d_1892` / 2016-05-01)
-  - **Window 3**: Days 1900–1906 (Origin: `d_1899` / 2016-05-08)
-  - **Window 4**: Days 1907–1913 (Origin: `d_1906` / 2016-05-15)
-- **Total Forecast Evaluations**: $100 \text{ series} \times 7 \text{ days} \times 4 \text{ windows} = 2,800$ point predictions per model.
+The original dataset contains:
+
+- **Daily Unit Sales (`sales_train_validation.csv`)**: Daily sales observations for 30,490 product-store series across 10 Walmart stores.
+- **Calendar Data (`calendar.csv`)**: Dates, weekdays, months, events, and state-specific SNAP distribution indicators.
+- **Pricing Data (`sell_prices.csv`)**: Historical weekly selling prices for individual products across stores.
+
+### Phase 1 and Phase 2 evaluation sample
+
+To support reproducible experimentation and manageable computational requirements, the primary forecasting experiments use:
+
+- **Sample size:** 100 product-store series.
+- **Store representation:** 10 series sampled from each of the 10 stores.
+- **Sampling seed:** 42.
+- **Forecast horizon:** 7 days.
+- **Rolling evaluation origins:** 4.
+- **Total final test forecasts:** 2,800 per model.
+
+\[
+100 \times 4 \times 7 = 2,800
+\]
+
+All headline models are compared using the same final evaluation observations.
+
+### Data preparation and leakage prevention
+
+The feature engineering pipeline includes:
+
+- Autoregressive demand lags: `lag_1`, `lag_7`, and `lag_28`.
+- Rolling demand statistics: 7-day and 28-day rolling means.
+- Calendar features: weekday, month, weekend, and event indicators.
+- SNAP distribution indicators.
+- Product and store categorical identifiers.
+- Price and availability-related features for Phase 2 experiments.
+
+Rolling statistics are constructed using past observations only. Forecasting models use information available at each forecast origin, with recursive prediction where required.
+
+**Availability limitation:** Availability is approximated using price presence and a store-closure flag. This is not verified inventory-on-hand data or a confirmed stockout indicator.
+
+Raw M5 CSV files are intentionally excluded from version control. Download the competition data and place the extracted files in `Datasets/raw/`:
+
+```text
+Datasets/raw/
+├── calendar.csv
+├── sales_train_validation.csv
+└── sell_prices.csv
+```
 
 ---
 
 ## Forecasting Methodology & Pipeline
 
-The pipeline is split cleanly across three interactive notebooks in [Notebooks/](file:///Users/jatin./Desktop/Inventory-demand-forecasting/Notebooks):
+The research pipeline is organised into eight sequential notebooks.
 
 ```mermaid
-flowchart LR
-    A["Raw M5 Data\n(Datasets/raw/)"] --> B["Notebook 01:\nData Exploration"]
-    B --> C["Notebook 02:\nFeature Engineering"]
-    C --> D["Processed Data\n(Datasets/processed/)"]
-    D --> E["Notebook 03:\nModel Development"]
-    E --> F["Predictions & Results\n(results/)"]
-    E --> G["Report Figures\n(report/figures/)"]
+flowchart TD
+    A["Raw Walmart M5 Dataset"] --> B["01: Data Exploration"]
+    B --> C["02: Feature Engineering"]
+    C --> D["03: Phase 1 Baseline Models"]
+    D --> E["04: DeepAR Forecasting"]
+    E --> F["05: Kalman–DeepAR Hybrid"]
+    F --> G["06: Cold-Start Evaluation"]
+    G --> H["07: Ablation Study"]
+    H --> I["08: Inventory Simulation"]
+    I --> J["Evaluation, Results and Research Report"]
 ```
 
-### 1. Data Exploration (`01_data_exploration.ipynb`)
-- Analyzes sparsity and intermittent demand: zero-sales days represent a substantial fraction of all observations.
-- Examines continuous calendar alignment and confirms no missing days.
-- Disaggregates weekly seasonality (higher consumer foot traffic on weekends) and seasonal trend shifts across months.
+### Phase 1 — Baseline Development
 
-### 2. Feature Engineering (`02_feature_engineering.ipynb`)
-- Reshapes the wide matrix ($100 \times 1913$) to long tidy format with `pd.melt()`.
-- **Calendar & Contextual Features**: `day_of_week`, `month`, `is_weekend`, `event` (binary flag for scheduled events), and state-matched `snap` benefit distribution flag.
-- **Identity Categorical Encodings**: Integer mapping for `item_code` and `store_code`.
-- **Autoregressive Lags**: `lag_1`, `lag_7`, and `lag_28` (capturing yesterday, same-weekday-last-week, and four-weeks-ago demand).
-- **Lagged Rolling Aggregations**: `rolling_mean_7` and `rolling_mean_28` computed with a 1-day lag shift to strictly prevent data leakage.
-- Sets up rolling origin metadata and persists inputs into `Datasets/processed/phase1_prepared.pkl`.
+**1. Data Exploration (`01_data_exploration.ipynb`)**
 
-### 3. Model Development & Validation (`03_model_development.ipynb`)
-- Implements and trains the three benchmark models using only information up to each forecast origin.
-- **Recursive Multi-Step Forecasting**: For Gradient Boosting, forecasts are produced iteratively day-by-day; each day's prediction is dynamically fed back to update `lag_1` and rolling means for subsequent days within the 7-day window.
-- **Sanity Checks & Fairness Audits**: Asserts identical forecast keys across models, checks for negative predictions, verifies complete absence of nulls, and confirms prediction count ($2,800$ rows).
+- Examines demand sparsity and zero-sales distributions.
+- Investigates weekly and monthly demand patterns.
+- Analyses event schedules and store-level differences.
+- Performs data quality and calendar continuity checks.
+
+**2. Feature Engineering (`02_feature_engineering.ipynb`)**
+
+- Converts the sampled wide sales matrix into a long-format forecasting dataset.
+- Constructs lag and rolling-window features.
+- Adds calendar, SNAP, and categorical identifiers.
+- Defines reproducible rolling-origin evaluation windows.
+- Prevents leakage through shifted rolling calculations.
+
+**3. Model Development (`03_model_development.ipynb`)**
+
+- Implements Seasonal Naive, Kalman Filter, and Gradient Boosting.
+- Performs recursive seven-day forecasting.
+- Evaluates all models on identical forecast observations.
+- Generates prediction outputs and model comparison metrics.
+
+### Phase 2 — Deep Learning and Decision Support
+
+**4. Deep Learning Forecasting (`04_deep_learning_forecasting.ipynb`)**
+
+- Implements a global autoregressive LSTM forecasting architecture.
+- Uses static product/store representations through embeddings.
+- Models count-valued demand with a Negative Binomial output distribution.
+- Trains using autoregressive sequence construction and teacher forcing.
+- Produces probabilistic forecast samples and q10, q50, and q90 predictions.
+
+**5. Kalman–DeepAR Hybrid (`05_kalman_deepar_hybrid.ipynb`)**
+
+- Extracts dynamic demand states using local-level Kalman filtering.
+- Uses estimated level, variance, and innovation as neural model inputs.
+- Applies strictly past-only scaling to prevent temporal leakage.
+- Evaluates whether causal state information improves global neural forecasting.
+
+The hybrid is a **feature-level integration**, not an average of two final model predictions.
+
+**6. Cold-Start Evaluation (`06_cold_start_evaluation.ipynb`)**
+
+- Evaluates forecasting performance with limited historical context.
+- Investigates transfer to held-out item IDs.
+- Measures zero-shot performance.
+- Examines unseen store-item combinations.
+- Compares forecasting accuracy across different history lengths.
+
+**7. Ablation Study (`07_ablation_study.ipynb`)**
+
+- Evaluates the contribution of target history.
+- Investigates calendar and static categorical features.
+- Examines the impact of Kalman-derived inputs.
+- Compares controlled feature configurations using probabilistic metrics.
+
+**8. Inventory Simulation (`08_inventory_simulation.ipynb`)**
+
+- Converts predictive distributions into replenishment quantities.
+- Implements a newsvendor-style quantile decision rule.
+- Compares midpoint and cost-sensitive replenishment policies.
+- Evaluates inventory cost and fill-rate trade-offs.
 
 ---
 
 ## Models Evaluated
 
-### 1. Seasonal Naive (Baseline)
-- **Mechanism**: Predicts that demand for each day of the forecast horizon equals the sales observed exactly 7 days prior:
-  $$\hat{y}_{t+h} = y_{t+h-7}$$
-- **Role**: Simple weekly seasonal benchmark that requires no training.
+| Model | Approach | Role |
+|---|---|---|
+| Seasonal Naive | Statistical baseline | Weekly seasonal persistence |
+| Local-Level Kalman Filter | State-space model | Adaptive local demand estimation and uncertainty |
+| Gradient Boosting | Global machine learning | Nonlinear lag and calendar feature modelling |
+| DeepAR-style LSTM | Probabilistic deep learning | Global autoregressive demand distribution |
+| Kalman–DeepAR Hybrid | Causal hybrid model | Kalman state features integrated into neural forecasting |
 
-### 2. Local-Level Kalman Filter (State-Space with Uncertainty)
-- **Mechanism**: A univariate linear Gaussian state-space model fit independently on historical observations of each series:
-  - *Observation equation*: $y_t = a_t + \epsilon_t, \quad \epsilon_t \sim \mathcal{N}(0, \sigma_\epsilon^2)$
-  - *Transition equation*: $a_{t+1} = a_t + \eta_t, \quad \eta_t \sim \mathcal{N}(0, \sigma_\eta^2)$
-- **Uncertainty Quantification**: Propagates state estimation variance to generate point forecasts (filtered level $a_t$) and approximate **10th and 90th percentile prediction bounds** ($\hat{y} \pm 1.28 \cdot \sigma_t$). Negative values are clipped to zero.
+### 1. Seasonal Naive
 
-### 3. Global Histogram-Based Gradient Boosting (`HistGradientBoostingRegressor`)
-- **Mechanism**: A tree-based ensemble trained globally across all 100 series pooled together. Learns non-linear relationships across lag features, rolling statistics, calendar indicators, and store/item embeddings.
-- **Hyperparameters**:
-  - `max_iter`: 100 trees
-  - `learning_rate`: 0.05
-  - `max_leaf_nodes`: 31
-  - `min_samples_leaf`: 20
-  - `random_state`: 42
+Uses weekly periodic persistence to forecast future demand from the corresponding weekday in the previous week.
+
+### 2. Local-Level Kalman Filter
+
+Models demand using a local-level state-space formulation. The estimated latent demand level is updated as observations become available, while state uncertainty is propagated to construct prediction intervals.
+
+### 3. Global Histogram-Based Gradient Boosting
+
+Uses `HistGradientBoostingRegressor` trained across the sampled product-store series.
+
+It captures nonlinear relationships between lagged demand, rolling statistics, calendar indicators, and categorical product/store information.
+
+### 4. DeepAR-style LSTM
+
+Uses a shared recurrent neural network to learn demand patterns across multiple product-store series.
+
+A Negative Binomial output distribution models nonnegative count-valued demand and supports probabilistic forecasting.
+
+### 5. Causal Kalman–DeepAR Hybrid
+
+Extends the DeepAR architecture with causal Kalman-derived dynamic features, including estimated demand level, uncertainty, and innovation.
+
+The objective is to investigate whether local state information improves global neural forecasting.
 
 ---
 
 ## Experimental Results
 
-All models were evaluated on the identical 2,800 out-of-sample forecast points. Metrics used:
-- **MAE** (Mean Absolute Error): $\frac{1}{N} \sum |y - \hat{y}|$
-- **RMSE** (Root Mean Squared Error): $\sqrt{\frac{1}{N} \sum (y - \hat{y})^2}$
-- **WAPE (%)** (Weighted Absolute Percentage Error): $\frac{\sum |y - \hat{y}|}{\sum y} \times 100$
-- **Mean Pinball Loss** (Quantile loss evaluated at $\tau \in \{0.1, 0.5, 0.9\}$)
-- **80% Interval Coverage**: Empirical % of actual observations falling between 10th and 90th percentiles.
+All headline models use the same 2,800 final test observations.
 
 ### Overall Model Comparison
 
-From [`results/phase1_model_comparison.csv`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/results/phase1_model_comparison.csv):
-
-| Model | Forecast Points | MAE | RMSE | WAPE (%) | Mean Pinball Loss | 80% Interval Coverage |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Gradient Boosting** | **2,800** | **1.0224** | **2.0397** | **67.03%** | — | — |
-| **Kalman Filter** | 2,800 | 1.0595 | 2.1752 | 69.46% | 0.3413 | 87.57% |
-| **Seasonal Naive** | 2,800 | 1.2096 | 2.7084 | 79.30% | — | — |
-
-### Window-by-Window Performance
-
-From [`results/phase1_window_results.csv`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/results/phase1_window_results.csv):
-
-| Window | Test Dates | Model | MAE | RMSE | WAPE (%) |
-| :---: | :---: | :--- | :---: | :---: | :---: |
-| **1** | Days 1886–1892 | **Gradient Boosting** | **0.9617** | **1.6207** | **66.32%** |
-| 1 | Days 1886–1892 | Kalman Filter | 1.0349 | 2.0253 | 71.37% |
-| 1 | Days 1886–1892 | Seasonal Naive | 1.0986 | 2.3443 | 75.76% |
-| **2** | Days 1893–1899 | **Gradient Boosting** | **0.9878** | **1.6352** | **62.07%** |
-| 2 | Days 1893–1899 | Kalman Filter | 0.9901 | 1.7255 | 62.21% |
-| 2 | Days 1893–1899 | Seasonal Naive | 1.1214 | 2.1404 | 70.47% |
-| **3** | Days 1900–1906 | **Gradient Boosting** | **1.0782** | **2.2556** | **69.69%** |
-| 3 | Days 1900–1906 | Kalman Filter | 1.1301 | 2.3708 | 73.04% |
-| 3 | Days 1900–1906 | Seasonal Naive | 1.3043 | 2.9493 | 84.30% |
-| **4** | Days 1907–1913 | **Gradient Boosting** | **1.0619** | 2.5005 | **70.19%** |
-| 4 | Days 1907–1913 | Kalman Filter | 1.0830 | **2.4951** | 71.59% |
-| 4 | Days 1907–1913 | Seasonal Naive | 1.3143 | 3.2505 | 86.87% |
+| Model | MAE | RMSE | WAPE | Mean Pinball Loss | 80% Interval Coverage |
+|---|---:|---:|---:|---:|---:|
+| Seasonal Naive | 1.2096 | 2.7084 | 79.30% | — | — |
+| Phase 1 Kalman | 1.0595 | 2.1752 | 69.46% | 0.3413 | 87.57% |
+| Gradient Boosting | 1.0224 | **2.0397** | 67.03% | — | — |
+| **DeepAR v2** | **0.9221** | 2.1194 | **60.45%** | **0.3113** | 93.89% |
+| Causal Hybrid v2 | 0.9559 | 2.2728 | 62.67% | 0.3161 | 93.25% |
 
 ### Key Findings & Trade-offs
 
-1. **Gradient Boosting is the Strongest Point Forecaster**:
-   - Outperforms both baselines across all 4 evaluation windows in MAE and WAPE.
-   - Achieves an overall MAE of **1.022** and WAPE of **67.03%**, a **15.5% relative error reduction over Seasonal Naive**.
-2. **Kalman Filter Delivers Strong Uncertainty Quantification**:
-   - Follows closely behind Gradient Boosting (MAE 1.059 vs 1.022) with virtually zero feature engineering.
-   - Its nominal 80% prediction interval covers **87.57%** of actual sales out-of-sample (pinball loss: 0.3413), providing vital safety-stock margins for inventory managers.
-3. **Seasonal Naive Fails on Intermittent Demand**:
-   - High RMSE (2.708) indicates significant vulnerability to demand spikes and zero-sales fluctuations.
-4. **Recursive Error Compounding**:
-   - In 7-day multi-step rollouts, recursive feeding of model estimates introduces minor compounding errors in later days of the horizon.
+1. **DeepAR achieves the strongest MAE and WAPE performance.**
+   - MAE: 0.9221.
+   - WAPE: 60.45%.
+   - Mean pinball loss: 0.3113.
+
+2. **Gradient Boosting achieves the lowest RMSE.**
+   - RMSE: 2.0397.
+   - It remains a strong global machine learning baseline.
+
+3. **The causal hybrid does not outperform standalone DeepAR.**
+   - Hybrid MAE: 0.9559.
+   - DeepAR MAE: 0.9221.
+   - Adding Kalman features does not automatically improve predictive accuracy.
+
+4. **Probabilistic intervals are conservative.**
+   - DeepAR coverage: 93.89%.
+   - Hybrid coverage: 93.25%.
+   - Both exceed the nominal 80% central interval coverage, indicating a need for further calibration.
+
+### Cold-Start Evaluation
+
+The cold-start experiments investigate how forecasting performance changes when historical observations are restricted.
+
+| Observed History | MAE | WAPE |
+|---|---:|---:|
+| 7 days | 1.1673 | 49.36% |
+| 14 days | 1.1118 | 47.02% |
+| 28 days | 1.1278 | 47.69% |
+| 56 days | 1.1720 | 49.56% |
+| Zero-shot | 2.3938 | 101.23% |
+
+The held-out item evaluation contains 19 item IDs. Zero-shot forecasting has substantially higher error than limited-history transfer.
+
+The new store-item combination cohort contains only three series, so its results are exploratory and insufficient for broad generalisation claims.
+
+### Ablation Study
+
+The ablation experiments investigate the contribution of different feature groups to probabilistic forecasting.
+
+| Experiment | Mean Pinball Loss |
+|---|---:|
+| Complete DeepAR with price and availability | **0.3113** |
+| Target-only DeepAR | 0.3184 |
+| Calendar-only DeepAR | 0.3226 |
+| Kalman feature addition | 0.3278 |
+| Calendar and static embeddings | 0.3671 |
+| Complete causal hybrid | 0.3161 |
+
+The complete DeepAR configuration achieves the lowest reported pinball loss among these configurations. The results indicate that feature additions do not necessarily improve forecasting performance.
+
+### Probabilistic Calibration
+
+The nominal central prediction interval is q10–q90, corresponding to an 80% interval.
+
+| Model | Empirical Coverage | Below q10 | Above q90 |
+|---|---:|---:|---:|
+| DeepAR v2 | 93.89% | 0.75% | 5.36% |
+| Causal Hybrid v2 | 93.25% | 1.07% | 5.68% |
+
+Both models demonstrate conservative interval coverage relative to the nominal 80% target. Further calibration should be performed using validation data before operational deployment.
+
+### Inventory Simulation
+
+The inventory experiment evaluates a simplified one-period replenishment decision using model forecasts.
+
+| Policy | Total Cost | Fill Rate |
+|---|---:|---:|
+| DeepAR midpoint policy | 6,313 | 82.07% |
+| Interpolated newsvendor policy | 7,025 | 89.18% |
+
+The newsvendor policy achieves a higher fill rate under the assumed holding-to-stockout cost ratio of 1:4, with a corresponding increase in total simulated cost.
+
+These results illustrate the trade-off between service level and inventory cost. They are educational simulation results rather than a full operational inventory optimisation.
 
 ---
 
 ## Visualizations
 
-All publication figures generated by the pipeline are stored in [`report/figures/`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/figures):
+Research figures generated by the project are stored in `report/figures/phase2/`.
 
-| Plot | Description | File |
-| :--- | :--- | :--- |
-| **Demand Distribution** | Demonstrates extreme intermittency and high zero-sales frequency across product series. | [`demand_distribution.png`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/figures/demand_distribution.png) |
-| **Aggregate Time Patterns** | Multi-timescale trends showing daily, weekly, and monthly aggregate volume variations. | [`aggregate_time_patterns.png`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/figures/aggregate_time_patterns.png) |
-| **Weekday Sales** | Average sales distribution per day of the week, highlighting weekend spikes. | [`weekday_average_sales.png`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/figures/weekday_average_sales.png) |
-| **MAE by Window** | Out-of-sample MAE trajectory across Windows 1–4 comparing all three models. | [`mae_by_window.png`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/figures/mae_by_window.png) |
+| Visualization | Description |
+|---|---|
+| Model MAE Comparison | Compares point forecasting performance across the five models |
+| Cold-Start MAE | Compares performance across different historical context lengths |
+| Coverage by Horizon | Examines probabilistic interval coverage |
+| Interval Width by Horizon | Shows forecast uncertainty across horizons |
+| Calibration Tail Miss Rates | Compares lower and upper interval misses |
+| Ablation Pinball Loss | Compares feature configuration performance |
+| Inventory Cost Comparison | Visualizes replenishment policy trade-offs |
+
+Phase 1 exploratory figures and benchmark results are retained alongside the Phase 2 outputs.
 
 ---
 
 ## Setup & Installation
 
 ### Prerequisites
-- Python 3.10, 3.11, 3.12, or 3.13
-- Git
+
+- Python 3.12 recommended.
+- Git.
+- Jupyter Notebook or JupyterLab.
+- Access to the Walmart M5 dataset.
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/tejuuu-7774/Inventory-demand-forecasting.git
 cd Inventory-demand-forecasting
 ```
 
 ### 2. Create and Activate a Virtual Environment
+
+**macOS / Linux**
+
 ```bash
-# macOS / Linux
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
+```
 
-# Windows (Command Prompt)
-python -m venv .venv
+**Windows — Command Prompt**
+
+```bash
+py -3.12 -m venv .venv
 .venv\Scripts\activate.bat
+```
 
-# Windows (PowerShell)
-python -m venv .venv
+**Windows — PowerShell**
+
+```powershell
+py -3.12 -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
 ### 3. Install Dependencies
+
+The project uses one consolidated dependency file for both phases.
+
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+### 4. Verify the Environment
+
+```bash
+python --version
+python -m pip check
 ```
 
 ---
 
 ## How to Run
 
-### Step 1: Download M5 Kaggle Data
-Download the data from the [Kaggle M5 Forecasting — Accuracy Competition](https://www.kaggle.com/c/m5-forecasting-accuracy/data). Place the extracted CSV files into the `Datasets/raw/` directory:
-- `Datasets/raw/sales_train_validation.csv`
-- `Datasets/raw/calendar.csv`
-- `Datasets/raw/sell_prices.csv`
+### Step 1: Download the M5 Dataset
 
-### Step 2: Launch Jupyter
-```bash
-jupyter lab
-# or: jupyter notebook
+Download the three required CSV files from the [Kaggle M5 Forecasting — Accuracy Competition](https://www.kaggle.com/c/m5-forecasting-accuracy/data).
+
+Place the extracted files inside:
+
+```text
+Datasets/raw/
+├── calendar.csv
+├── sales_train_validation.csv
+└── sell_prices.csv
 ```
 
-### Step 3: Execute Notebooks in Sequence
-1. **`Notebooks/01_data_exploration.ipynb`**:
-   Loads the raw M5 files, performs sanity checks on calendar continuity and missing data, examines zero-sales distributions, and generates exploratory figures.
-2. **`Notebooks/02_feature_engineering.ipynb`**:
-   Samples 100 balanced series, constructs lag and rolling features, splits the test windows, and saves `phase1_prepared.pkl`.
-3. **`Notebooks/03_model_development.ipynb`**:
-   Trains the models, runs the recursive multi-step forecasting evaluation, generates performance tables, and exports outputs to `results/`.
+### Step 2: Launch Jupyter
+
+```bash
+jupyter lab
+```
+
+Alternatively:
+
+```bash
+jupyter notebook
+```
+
+### Step 3: Execute Notebooks in Numerical Order
+
+1. `01_data_exploration.ipynb` — Exploratory data analysis.
+2. `02_feature_engineering.ipynb` — Data preparation and feature construction.
+3. `03_model_development.ipynb` — Phase 1 model training and evaluation.
+4. `04_deep_learning_forecasting.ipynb` — DeepAR model training and probabilistic forecasting.
+5. `05_kalman_deepar_hybrid.ipynb` — Causal hybrid forecasting.
+6. `06_cold_start_evaluation.ipynb` — Limited-history and zero-shot evaluation.
+7. `07_ablation_study.ipynb` — Controlled feature comparisons.
+8. `08_inventory_simulation.ipynb` — Inventory policy evaluation.
+
+Run notebooks in order because later experiments depend on earlier data preparation and trained model artifacts.
+
+### Step 4: Run Automated Tests
+
+From the repository root:
+
+```bash
+python -m pytest tests/phase2 -q
+```
+
+The Phase 2 test suite covers data preparation, model behaviour, temporal leakage prevention, evaluation, artifact validation, cold-start experiments, statistical analysis, and inventory calculations.
 
 ---
 
 ## Deliverables & Reports
 
-- **Team Written Report**: [`report/Inventory_Demand_Forecasting_Team_Report.pdf`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/report/Inventory_Demand_Forecasting_Team_Report.pdf)
-- **Team Presentation Slide Deck**: [`Presentation/Inventory_Demand_Forecast_AML_Team_Project_Phase_1 (1).pdf`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/Presentation/Inventory_Demand_Forecast_AML_Team_Project_Phase_1%20(1).pdf)
-- **Benchmark Metrics**: [`results/phase1_model_comparison.csv`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/results/phase1_model_comparison.csv)
-- **Granular Predictions**: [`results/phase1_predictions.csv.gz`](file:///Users/jatin./Desktop/Inventory-demand-forecasting/results/phase1_predictions.csv.gz)
+- **Final Phase 2 Research Report:** [`report/PHASE2_FINAL_RESEARCH_REPORT.pdf`](report/PHASE2_FINAL_RESEARCH_REPORT.pdf)
+- **Phase 2 Research Figures:** [`report/figures/phase2/`](report/figures/phase2/)
+- **Phase 1 Benchmark Results:** [`results/`](results/)
+- **Corrected Phase 2 Experiment Results:** [`results/phase2/`](results/phase2/)
+- **Phase 2 Model Manifests:** [`models/phase2/`](models/phase2/)
+- **Experiment Configuration:** [`configs/`](configs/)
+- **Automated Tests:** [`tests/phase2/`](tests/phase2/)
 
 ---
 
-## Future Work & Phase 2 Roadmap
+## Limitations & Future Work
 
-- [ ] **Deep Learning Architectures**: Implement autoregressive recurrent models (DeepAR, LSTM/GRU) and Temporal Fusion Transformers (TFT) to model long-range temporal dependencies.
-- [ ] **Price Elasticity & Promotions**: Incorporate `sell_prices.csv` to calculate price discount percentages, rolling price changes, and markdown elasticity.
-- [ ] **Intermittent Demand Specialized Metrics**: Benchmark Croston's Method and Syntetos-Boylan Approximation (SBA) for slow-moving, lumpy SKUs.
-- [ ] **Hierarchical Aggregation**: Scale evaluation to all 30,490 series across state, store, category, and department levels using M5 Weighted Root Mean Squared Scaled Error (WRMSSE).
+Although the experiments demonstrate the potential of global probabilistic forecasting for intermittent retail demand, several limitations remain:
+
+1. **Sample Size:** The primary benchmark uses 100 of the 30,490 M5 product-store series. Results should not be generalised to the full hierarchy without additional experiments.
+
+2. **Availability Proxy:** Price presence and store-closure indicators do not provide verified inventory-on-hand or confirmed stockout information.
+
+3. **Probabilistic Calibration:** DeepAR and the hybrid produce conservative prediction intervals that require further calibration.
+
+4. **Cold-Start Generalisation:** The held-out item cohort is limited, and the new-combination experiment contains only three series.
+
+5. **Inventory Simulation:** The current simulation is one-period and omits lead times, multi-period inventory carryover, storage capacity, and operational replenishment constraints.
+
+6. **Hierarchical Evaluation:** Full M5 hierarchical WRMSSE evaluation across all 30,490 series remains future work.
+
+7. **Additional Forecasting Baselines:** Croston's method, SBA, Temporal Fusion Transformers, and other intermittent-demand-specific approaches could provide useful comparisons.
+
+8. **Operational Deployment:** Future work should incorporate real inventory levels, promotion schedules, replenishment lead times, and validation-based uncertainty calibration.
+
+---
+
+## References
+
+1. Makridakis, S., Spiliotis, E., and Assimakopoulos, V. (2022). "M5 accuracy competition: Results, findings, and conclusions." *International Journal of Forecasting*.  
+   [https://doi.org/10.1016/j.ijforecast.2021.11.013](https://doi.org/10.1016/j.ijforecast.2021.11.013)
+
+2. Salinas, D., Flunkert, V., Gasthaus, J., and Januschowski, T. (2020). "DeepAR: Probabilistic forecasting with autoregressive recurrent networks." *International Journal of Forecasting*.  
+   [https://doi.org/10.1016/j.ijforecast.2019.07.001](https://doi.org/10.1016/j.ijforecast.2019.07.001)
+
+3. Kalman, R. E. (1960). "A New Approach to Linear Filtering and Prediction Problems." *Journal of Basic Engineering*.  
+   [https://doi.org/10.1115/1.3662552](https://doi.org/10.1115/1.3662552)
+
+4. Gneiting, T., and Raftery, A. E. (2007). "Strictly Proper Scoring Rules, Prediction, and Estimation." *Journal of the American Statistical Association*.  
+   [https://doi.org/10.1198/016214506000001437](https://doi.org/10.1198/016214506000001437)
+
+---
+
+## License & Citation
+
+This project is released under the license specified in [`LICENSE`](LICENSE).
+
+Citation information is available in [`CITATION.cff`](CITATION.cff).
