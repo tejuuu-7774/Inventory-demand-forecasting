@@ -1,0 +1,21 @@
+{
+  "random_seed": 42,
+  "context_length": 56,
+  "forecast_horizon": 7,
+  "number_of_test_windows": 4,
+  "validation_days": 14,
+  "training_stride": 14,
+  "batch_size": 128,
+  "hidden_size": 24,
+  "number_of_lstm_layers": 1,
+  "embedding_size": 4,
+  "learning_rate": 0.003,
+  "maximum_epochs": 6,
+  "early_stopping_patience": 2,
+  "number_of_forecast_samples": 100,
+  "gradient_clip_norm": 1.0,
+  "device_preference": "cpu",
+  "cold_start_item_fraction": 0.2,
+  "inventory_holding_cost": 1.0,
+  "inventory_stockout_cost": 4.0
+}
