@@ -1,0 +1,49 @@
+{
+  "number_of_rows": 191300,
+  "number_of_series": 100,
+  "first_date": "2011-01-29",
+  "last_date": "2016-04-24",
+  "price_missing_fraction": 0.17329848405645581,
+  "zero_sales_fraction": 0.6468635650810246,
+  "windows": [
+    {
+      "window": "1",
+      "origin": "2016-03-27 00:00:00",
+      "forecast_start": "2016-03-28 00:00:00",
+      "forecast_end": "2016-04-03 00:00:00"
+    },
+    {
+      "window": "2",
+      "origin": "2016-04-03 00:00:00",
+      "forecast_start": "2016-04-04 00:00:00",
+      "forecast_end": "2016-04-10 00:00:00"
+    },
+    {
+      "window": "3",
+      "origin": "2016-04-10 00:00:00",
+      "forecast_start": "2016-04-11 00:00:00",
+      "forecast_end": "2016-04-17 00:00:00"
+    },
+    {
+      "window": "4",
+      "origin": "2016-04-17 00:00:00",
+      "forecast_start": "2016-04-18 00:00:00",
+      "forecast_end": "2016-04-24 00:00:00"
+    }
+  ],
+  "boundaries": {
+    "training_end": "2016-03-13",
+    "validation_start": "2016-03-14",
+    "validation_end": "2016-03-27",
+    "test_start": "2016-03-28",
+    "test_end": "2016-04-24"
+  },
+  "category_cardinalities": {
+    "item_id": 79,
+    "store_id": 11,
+    "cat_id": 4,
+    "dept_id": 8,
+    "state_id": 4
+  },
+  "availability_note": "is_available_proxy means a selling price exists and the date is not Christmas. It is not verified inventory-on-hand or a verified stockout."
+}

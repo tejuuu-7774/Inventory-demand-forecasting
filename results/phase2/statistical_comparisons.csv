@@ -1,0 +1,4 @@
+number_of_series,mean_mae_difference_first_minus_second,ci_95_lower,ci_95_upper,first_wins,second_wins,ties,bootstrap_resamples,random_seed,first_model,second_model
+100,0.18725650817854855,0.11529689623415319,0.2712184776074428,37,63,0,10000,42,Seasonal Naive,Gradient Boosting
+100,0.10024349182145142,0.06693766797465894,0.1311482808389981,19,81,0,10000,42,Gradient Boosting,DeepAR v2
+100,-0.03375,-0.09982142857142856,0.010897321428571359,34,22,44,10000,42,DeepAR v2,Causal hybrid v2

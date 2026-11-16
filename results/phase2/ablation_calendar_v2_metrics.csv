@@ -1,0 +1,2 @@
+MAE,RMSE,WAPE_percent,pinball_q10,pinball_q50,pinball_q90,mean_pinball_loss,interval_coverage_80_percent,empirical_q10_below_percent,empirical_q90_at_or_below_percent,empirical_q90_above_percent,mean_interval_width,forecast_points,experiment_id,Model,training_seconds,training_examples,epochs_completed,device
+0.94625,2.185769723853427,62.034652306251466,0.13310357142857146,0.473125,0.36143214285714287,0.32255357142857144,93.32142857142857,0.9285714285714286,94.25,5.75,3.56607142857143,2800,ablation_calendar_v2,DeepAR + calendar,5.812668917002156,13100,6,cpu
